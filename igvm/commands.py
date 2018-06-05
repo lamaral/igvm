@@ -616,7 +616,6 @@ def _get_best_hypervisor(vm, hypervisor_states, offline=False):
         'state': Any(*hypervisor_states),
     }, HYPERVISOR_ATTRIBUTES))
 
-    ret_hypervisor = None
     for hypervisor in sorted_hypervisors(
         HYPERVISOR_PREFERENCES, vm, hypervisors
     ):
@@ -638,19 +637,14 @@ def _get_best_hypervisor(vm, hypervisor_states, offline=False):
                 .format(hypervisor, error)
             )
             continue
-        else:
-            ret_hypervisor = hypervisor
-            break
-    else:
-        raise IGVMError('Cannot find a hypervisor')
 
-    # Ugly trick. If we yield and break, this context manager will supress
-    # exceptions in block it is used for.
-    if ret_hypervisor:
         try:
-            yield ret_hypervisor
+            yield hypervisor
         finally:
             hypervisor.release_lock()
+        break
+    else:
+        raise IGVMError('Cannot find a hypervisor')
 
 
 @contextmanager
