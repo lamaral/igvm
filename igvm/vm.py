@@ -458,8 +458,9 @@ class VM(Host):
                 warn_only=True,
             ):
                 run(
-                    'sudo /usr/bin/puppet cert clean {}'.format(self.fqdn),
+                    '/usr/bin/puppet cert clean {}'.format(self.fqdn),
                     shell=False,
+                    with_sudo=True,
                 )
 
         self.block_autostart()
