@@ -341,19 +341,27 @@ def vm_migrate(vm_hostname, hypervisor_hostname=None,
 
 
 @with_fabric_settings
-def vm_start(vm_hostname):
+def vm_start(vm_hostname, unretire=None):
     """Start a VM"""
-    with _get_vm(vm_hostname) as vm:
+    with _get_vm(vm_hostname, allow_retired=(unretire is not None)) as vm:
         _check_defined(vm)
+
+        if unretire and vm.dataset_obj['state'] != 'retired':
+            raise InvalidStateError('Can\'t unretire a non-retired VM!')
 
         if vm.is_running():
             log.info('"{}" is already running.'.format(vm.fqdn))
             return
+
         vm.start()
+
+        if unretire:
+            vm.dataset_obj['state'] = unretire
+            vm.dataset_obj.commit()
 
 
 @with_fabric_settings
-def vm_stop(vm_hostname, force=False):
+def vm_stop(vm_hostname, force=False, retire=False):
     """Gracefully stop a VM"""
     with _get_vm(vm_hostname, allow_retired=True) as vm:
         _check_defined(vm)
@@ -366,6 +374,11 @@ def vm_stop(vm_hostname, force=False):
         else:
             vm.shutdown()
         log.info('"{}" is stopped.'.format(vm.fqdn))
+        if retire:
+            vm.dataset_obj['state'] = 'retired'
+            vm.dataset_obj.commit()
+            log.info('"{}" is retired.'.format(vm.fqdn))
+
 
 
 @with_fabric_settings
