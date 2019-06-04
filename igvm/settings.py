@@ -133,6 +133,7 @@ HYPERVISOR_ATTRIBUTES = [
             'memory',
             'num_cpu',
             'project',
+            'served_game',
         ],
     },
 ]
@@ -156,6 +157,7 @@ VM_ATTRIBUTES = [
     'puppet_disabled',
     'puppet_master',
     'route_network',
+    'served_game',
     'sshfp',
     'state',
     {'hypervisor': HYPERVISOR_ATTRIBUTES},
@@ -180,6 +182,7 @@ HYPERVISOR_PREFERENCES = [
         'game_market',
         'game_world',
         'game_type',
+        'served_game',
     ]),
     # Don't migrate two masters database servers together
     OtherVMs(['game_world', 'function'], [0, 'db']),
