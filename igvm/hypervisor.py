@@ -799,7 +799,7 @@ class Hypervisor(Host):
 
         # Using DD lowers load on device with big enough Block Size
         self.run(
-            'nohup /bin/nc.traditional -l -p {0} | dd of={1} obs=1048576 &'
+            '/bin/nc.traditional -l -p {0} | dd of={1} obs=1048576 &'
             .format(port, device)
         )
         try:
