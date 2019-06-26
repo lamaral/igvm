@@ -63,6 +63,11 @@ KVM_HWMODEL_TO_CPUMODEL = {
     ],
 }
 
+XFS_CONFIG = {
+    'jessie': [],
+    'stretch': [],
+    'buster': ['-m reflink=1'],
+}
 
 # There are various combinations of source and target HVs which come
 # with their own bugs and must be addressed separately.
