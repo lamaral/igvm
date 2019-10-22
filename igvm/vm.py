@@ -2,6 +2,7 @@
 
 Copyright (c) 2018 InnoGames GmbH
 """
+from math import ceil
 
 import boto3
 import logging
@@ -11,7 +12,7 @@ import tqdm
 
 from base64 import b64decode
 from botocore.exceptions import ClientError
-from fabric.api import cd, get, hide, put, run, settings
+from fabric.api import cd, get, hide, put, run, settings, sudo
 from fabric.contrib.files import upload_template
 from fabric.exceptions import NetworkError
 from hashlib import sha1, sha256
@@ -713,3 +714,46 @@ class VM(Host):
 
     def copy_postboot_script(self, script):
         self.put('/buildvm-postboot', script, '0755')
+
+    def aws_disk_set(self, size: int) -> None:
+        """AWS disk set
+
+        Resize a disk in AWS.
+
+        :param: size: New disk_size
+
+        :raises: VMError: Generic exception for VM errors of all kinds
+        """
+
+        ec2 = boto3.resource('ec2')
+
+        response = ec2.Instance(self.dataset_obj['aws_instance_id'])
+        for vol in response.volumes.all():
+            volume_id = vol.id
+            break
+
+        ec2 = boto3.client('ec2')
+        ec2.modify_volume(VolumeId=volume_id, Size=int(size))
+
+        time.sleep(5)
+
+        with settings(
+            host_string=self.dataset_obj['hostname'],
+            warn_only=True,
+        ):
+            disk = self.run('lsblk -r | grep disk | cut -d " " -f1')
+            partition = self.run('lsblk -r | grep part | cut -d " " -f1')
+            disk_resize = self.run('growpart /dev/{} 1'.format(disk))
+            if disk_resize.succeeded:
+                fs_resize = self.run('resize2fs /dev/{}'.format(partition))
+                if fs_resize.succeeded:
+                    log.info(
+                        'successfully resized disk of {} to {}GB'.format(
+                            self.dataset_obj['hostname'], size)
+                    )
+                    return
+
+            raise VMError('disk resize for {} failed'.format(
+                self.dataset_obj['hostname'])
+            )
+
