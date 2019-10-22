@@ -12,7 +12,7 @@ import tqdm
 
 from base64 import b64decode
 from botocore.exceptions import ClientError
-from fabric.api import cd, get, hide, put, run, settings, sudo
+from fabric.api import cd, get, hide, put, run, settings
 from fabric.contrib.files import upload_template
 from fabric.exceptions import NetworkError
 from hashlib import sha1, sha256
@@ -757,3 +757,32 @@ class VM(Host):
                 self.dataset_obj['hostname'])
             )
 
+    def aws_sync(self) -> dict:
+        """AWS sync
+
+        Sync values like memory, disk_size_gib and num_cpu in for AwS VMs.
+
+        :return: Values to sync as a dict of tuples
+        """
+
+        with hide('everything'), settings(
+                host_string=self.dataset_obj['hostname']):
+            memory = self.run('cat /proc/meminfo | grep MemTotal').split()[1]
+
+        ec2 = boto3.resource('ec2')
+
+        response = ec2.Instance(self.dataset_obj['aws_instance_id'])
+        for vol in response.volumes.all():
+            volume_size = vol.size
+            break
+
+        cpu_options = response.cpu_options
+
+        sync_values = dict()
+        sync_values['memory'] = ceil(int(memory) / 1024)
+        sync_values['disk_size_gib'] = volume_size
+        sync_values['num_cpu'] = (
+            cpu_options['CoreCount'] * cpu_options['ThreadsPerCore']
+        )
+
+        return sync_values
