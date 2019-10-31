@@ -113,6 +113,8 @@ class VM(Host):
             seems broken, at least for mounted VM. This is why we run
             extra commands here.
         """
+        log.warning(remote_path)
+        log.warning(local_path)
         with self.vm_host():
             tempfile = '/tmp/' + str(uuid4())
             put(local_path, self.vm_path(tempfile))
@@ -173,8 +175,8 @@ class VM(Host):
                 lambda v: v > 0,
                 'disk_size_gib must be > 0',
             ),
-            ('puppet_ca', lambda v: True, 'puppet_ca must be set'),
-            ('puppet_master', lambda v: True, 'puppet_master must be set'),
+            #('puppet_ca', lambda v: True, 'puppet_ca must be set'),
+            #('puppet_master', lambda v: True, 'puppet_master must be set'),
         ]
 
         for attr, check, err in validations:
@@ -670,7 +672,8 @@ class VM(Host):
 
         if clear_cert:
             with settings(
-                host_string=self.dataset_obj['puppet_ca'],
+                # host_string=self.dataset_obj['puppet_ca'],
+                host_string='box.luiz.eng.br',
                 user='root',
                 warn_only=True,
             ):
@@ -690,8 +693,10 @@ class VM(Host):
                 '--skip_tags=chroot_unsafe --verbose{} ) ;'
                 '[ $? -eq 2 ]'.format(
                     self.fqdn,
-                    self.dataset_obj['puppet_master'],
-                    self.dataset_obj['puppet_ca'],
+                    'box.luiz.eng.br',
+                    'box.luiz.eng.br',
+                    # self.dataset_obj['puppet_master'],
+                    # self.dataset_obj['puppet_ca'],
                     ' --debug' if debug else '',
                 )
             )
