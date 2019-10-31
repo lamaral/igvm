@@ -77,12 +77,12 @@ class Hypervisor(Host):
         ).attrib['type']
 
         if (
-            self._storage_type not in HOST_RESERVED_MEMORY
-            or self._storage_type not in RESERVED_DISK
+                self._storage_type not in HOST_RESERVED_MEMORY or
+                self._storage_type not in RESERVED_DISK
         ):
             raise HypervisorError(
                 'Unsupported storage type {} on hypervisor {}'
-                .format(self._storage_type, self.dataset_obj['hostname'])
+                    .format(self._storage_type, self.dataset_obj['hostname'])
             )
         return self._storage_type
 
@@ -95,7 +95,7 @@ class Hypervisor(Host):
 
         raise StorageError(
             'No existing storage volume found for VM "{}" on "{}".'
-            .format(vm.fqdn, self.fqdn)
+                .format(vm.fqdn, self.fqdn)
         )
 
     def vm_lv_update_name(self, vm):
@@ -126,7 +126,7 @@ class Hypervisor(Host):
         if vm not in self._mount_path:
             raise HypervisorError(
                 '"{}" is not mounted on "{}".'
-                .format(vm.fqdn, self.fqdn)
+                    .format(vm.fqdn, self.fqdn)
             )
         return self._mount_path[vm]
 
@@ -166,7 +166,7 @@ class Hypervisor(Host):
             if os_pair not in MIGRATE_CONFIG:
                 raise HypervisorError(
                     '{} to {} migration is not supported online.'
-                    .format(*os_pair))
+                        .format(*os_pair))
 
             # Compatible CPU model?
             hw_pair = (
@@ -182,7 +182,7 @@ class Hypervisor(Host):
             if cpu_pair[0] != cpu_pair[1]:
                 raise HypervisorError(
                     '{} to {} migration is not supported online.'
-                    .format(*hw_pair)
+                        .format(*hw_pair)
                 )
 
         # HV in supported state?
@@ -226,7 +226,7 @@ class Hypervisor(Host):
             raise HypervisorError(
                 'Not enough free space in VG {} to build VM while keeping'
                 ' {} GiB reserved'
-                .format(VG_NAME, RESERVED_DISK[self.get_storage_type()])
+                    .format(VG_NAME, RESERVED_DISK[self.get_storage_type()])
             )
 
         # VM already defined? Least likely, if at all.
@@ -280,7 +280,7 @@ class Hypervisor(Host):
 
         log.info(
             'Changing #CPUs of "{}" on "{}" from {} to {}...'
-            .format(vm.fqdn, self.fqdn, vm.dataset_obj['num_cpu'], num_cpu)
+                .format(vm.fqdn, self.fqdn, vm.dataset_obj['num_cpu'], num_cpu)
         )
 
         # If VM is offline, we can just rebuild the domain
@@ -320,7 +320,7 @@ class Hypervisor(Host):
 
         log.info(
             'Changing memory of "{}" on "{}" from {} MiB to {} MiB'
-            .format(vm.fqdn, self.fqdn, vm.dataset_obj['memory'], memory)
+                .format(vm.fqdn, self.fqdn, vm.dataset_obj['memory'], memory)
         )
 
         vm.dataset_obj['memory'] = memory
@@ -415,7 +415,7 @@ class Hypervisor(Host):
         if self.vm_defined(vm):
             raise InvalidStateError(
                 'Refusing to format storage of defined VM "{}".'
-                .format(vm.fqdn)
+                    .format(vm.fqdn)
             )
 
         self.format_storage(self.get_volume_by_vm(vm).path())
@@ -478,6 +478,11 @@ class Hypervisor(Host):
         del self._mount_path[vm]
         vm.mounted = False
 
+    def prepare_cloudinit_image(self, vm):
+        """Create the cloudinit ISO image containing the metada necessary for bootstrapping the VM"""
+        tmp_dir = self.run('mktemp -d --suffix -cloudinit-{}'.format(vm.fqdn))
+
+
     def vm_sync_from_hypervisor(self, vm):
         """Synchronizes serveradmin information from the actual data on
         the hypervisor. Returns a dict with all collected values."""
@@ -499,7 +504,7 @@ class Hypervisor(Host):
         if not conn:
             raise HypervisorError(
                 'Unable to connect to hypervisor "{}"!'
-                .format(self.fqdn)
+                    .format(self.fqdn)
             )
         return conn
 
@@ -525,7 +530,7 @@ class Hypervisor(Host):
             if found is not None:
                 raise HypervisorError(
                     'Same VM is defined multiple times as "{}" and "{}".'
-                    .format(found.name(), name)
+                        .format(found.name(), name)
                 )
             found = domain
         return found
@@ -535,7 +540,7 @@ class Hypervisor(Host):
         if not domain:
             raise HypervisorError(
                 'Unable to find domain "{}" on hypervisor "{}".'
-                .format(vm.fqdn, self.fqdn)
+                    .format(vm.fqdn, self.fqdn)
             )
         return domain
 
@@ -545,13 +550,13 @@ class Hypervisor(Host):
         return 'vda1'
 
     def migrate_vm(
-        self, vm, target_hypervisor, offline, offline_transport, transaction,
-        no_shutdown,
+            self, vm, target_hypervisor, offline, offline_transport, transaction,
+            no_shutdown,
     ):
         if offline_transport not in ['netcat', 'drbd']:
             raise StorageError(
                 'Unknown offline transport method {}!'
-                .format(offline_transport)
+                    .format(offline_transport)
             )
 
         if offline:
@@ -584,7 +589,7 @@ class Hypervisor(Host):
                     )
                     log.debug(
                         'Block sizes: VM {}, Source HV {}, Destination HV {}'
-                        .format(vm_block_size, src_block_size, dst_block_size)
+                            .format(vm_block_size, src_block_size, dst_block_size)
                     )
                     vm.set_block_size('vda', min(
                         vm_block_size,
@@ -759,7 +764,7 @@ class Hypervisor(Host):
                 log.warning(
                     'Umounting {} failed, attempting again in a moment. '
                     '{} attempts left.'
-                    .format(device_or_path, retry - i)
+                        .format(device_or_path, retry - i)
                 )
                 sleep(1)
             res = self.run(

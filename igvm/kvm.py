@@ -88,14 +88,14 @@ class DomainProperties(object):
         self.numa_mode = self.NUMA_SPREAD
         self.mem_hotplug = (self.qemu_version >= (2, 3))
         self.mem_balloon = False
-        if len(vm.dataset_obj['mac']) == 0:
+        if not vm.dataset_obj['mac']:
             self.mac_address = _generate_mac_address(
                 vm.dataset_obj['object_id']
             )
-            vm.dataset_obj['mac'] = [self.mac_address]
+            vm.dataset_obj['mac'] = self.mac_address
         else:
             # Opportunistic algorighm: get *any* MAC from Serveradmin
-            self.mac_address = next(iter(vm.dataset_obj['mac']))
+            self.mac_address = vm.dataset_obj['mac']
 
         if vm.dataset_obj['os'].startswith('freebsd'):
             self.boot_type = 'freebsd'
@@ -210,8 +210,8 @@ def _live_repin_cpus(domain, props, max_phys_cpus):
 
 
 def migrate_background(
-    domain, source, destination,
-    migrate_params, migrate_flags,
+        domain, source, destination,
+        migrate_params, migrate_flags,
 ):
     # As it seems it is possible to call multiple functions in parallel
     # from different threads.
@@ -242,12 +242,12 @@ def migrate_live(source, destination, vm, domain):
     )
 
     migrate_flags = (
-        VIR_MIGRATE_LIVE |  # Do it live
-        VIR_MIGRATE_PERSIST_DEST |  # Define the VM on the new host
-        VIR_MIGRATE_CHANGE_PROTECTION |  # Protect source VM
-        VIR_MIGRATE_NON_SHARED_DISK |  # Copy non-shared storage
-        VIR_MIGRATE_AUTO_CONVERGE |  # Slow down VM if can't migrate memory
-        VIR_MIGRATE_ABORT_ON_ERROR  # Don't tolerate soft errors
+            VIR_MIGRATE_LIVE |  # Do it live
+            VIR_MIGRATE_PERSIST_DEST |  # Define the VM on the new host
+            VIR_MIGRATE_CHANGE_PROTECTION |  # Protect source VM
+            VIR_MIGRATE_NON_SHARED_DISK |  # Copy non-shared storage
+            VIR_MIGRATE_AUTO_CONVERGE |  # Slow down VM if can't migrate memory
+            VIR_MIGRATE_ABORT_ON_ERROR  # Don't tolerate soft errors
     )
 
     migrate_params = {
@@ -386,9 +386,7 @@ def generate_domain_xml(hypervisor, vm):
         'name': vm.uid_name,
         'disk_pool': VG_NAME,
         'disk_volume': hypervisor.get_volume_by_vm(vm).name(),
-        'io_weight': (
-            500 if vm.dataset_obj['io_weight'] == 'default' else 250
-        ),
+        'io_weight': 500,
         'memory': vm.dataset_obj['memory'],
         'num_cpu': vm.dataset_obj['num_cpu'],
         'props': props,
@@ -437,25 +435,20 @@ def _set_cpu_model(hypervisor, vm, tree):
     """
     Selects CPU model based on hardware model.
     """
-    hw_model = hypervisor.dataset_obj['hardware_model']
 
-    for arch, models in KVM_HWMODEL_TO_CPUMODEL.items():
-        if hw_model in models:
-            cpu = _find_or_create(tree, 'cpu')
-            cpu.attrib.update({
-                'match': 'exact',
-                'mode': 'custom',
-            })
-            model = _find_or_create(cpu, 'model')
-            model.attrib.update({
-                'fallback': 'allow',
-            })
-            model.text = arch
-            log.info('KVM: CPU model set to "%s"' % arch)
-            return
-    raise HypervisorError(
-        'No CPU configuration for hardware model "{}"'.format(hw_model)
-    )
+    arch = 'kvm64'
+    cpu = _find_or_create(tree, 'cpu')
+    cpu.attrib.update({
+        'match': 'exact',
+        'mode': 'custom',
+    })
+    model = _find_or_create(cpu, 'model')
+    model.attrib.update({
+        'fallback': 'allow',
+    })
+    model.text = arch
+    log.info('KVM: CPU model set to "%s"' % arch)
+    return
 
 
 def _set_memory_hotplug(vm, tree, props):

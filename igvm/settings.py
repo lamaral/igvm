@@ -36,7 +36,7 @@ COMMON_FABRIC_SETTINGS = dict(
 if  'IGVM_SSH_USER' in environ:
     COMMON_FABRIC_SETTINGS['user'] = environ.get('IGVM_SSH_USER')
 
-VG_NAME = 'xen-data'
+VG_NAME = 'vm-data'
 # Reserved pool space on Hypervisor
 # TODO: this could be a percent value, at least for ZFS.
 RESERVED_DISK = {
@@ -61,7 +61,7 @@ KVM_DEFAULT_MAX_CPUS = 24
 # Mapping to determine the libvirt CPU model based on serveradmin hw_model
 KVM_HWMODEL_TO_CPUMODEL = {
     'Nehalem': ['Dell_R510', 'Dell_M610', 'Dell_M710'],
-    'SandyBridge': [
+    'IvyBridge': [
         'Dell_R320',
         'Dell_M620', 'Dell_M630', 'Dell_M640',
         'Dell_R620', 'Dell_R640',
@@ -101,7 +101,7 @@ MIGRATE_CONFIG = {
 
 # Arbitrarily chosen MAC address prefix with U/L bit set
 # It will be padded with the last three octets of the internal IP address.
-MAC_ADDRESS_PREFIX = (0xCA, 0xFE, 0x01)
+MAC_ADDRESS_PREFIX = (0xCA, 0xFE, 0x25)
 
 try:
     IGVM_IMAGE_URL = environ['IGVM_IMAGE_URL']
@@ -113,17 +113,18 @@ except KeyError:
 IMAGE_PATH = '/tmp'
 
 HYPERVISOR_ATTRIBUTES = [
-    'cpu_util_pct',
-    'cpu_util_vm_pct',
-    'hardware_model',
+#    'cpu_util_pct',
+#    'cpu_util_vm_pct',
+#    'hardware_model',
     'hostname',
     'igvm_locked',
     'intern_ip',
-    'iops_avg',
-    'libvirt_memory_total_gib',
-    'libvirt_memory_used_gib',
-    'libvirt_pool_total_gib',
-    'libvirt_pool_used_gib',
+    'ip6',
+#    'iops_avg',
+#    'libvirt_memory_total_gib',
+#    'libvirt_memory_used_gib',
+#    'libvirt_pool_total_gib',
+#    'libvirt_pool_used_gib',
     'num_cpu',
     'os',
     'route_network',
@@ -139,46 +140,28 @@ HYPERVISOR_ATTRIBUTES = [
         'vms': [
             'disk_size_gib',
             'environment',
-            'function',
-            'game_market',
-            'game_type',
-            'game_world',
             'hostname',
             'memory',
             'num_cpu',
-            'project',
         ],
     },
 ]
 
 VM_ATTRIBUTES = [
-    'aws_image_id',
-    'aws_instance_id',
-    'aws_instance_type',
-    'aws_key_name',
-    'aws_placement',
-    'aws_security_group_ids',
-    'aws_subnet_id',
-    'datacenter',
-    'datacenter_type',
     'disk_size_gib',
     'environment',
-    'function',
-    'game_market',
-    'game_type',
-    'game_world',
     'hostname',
     'igvm_locked',
+    'igvm_operation_mode',
     'intern_ip',
-    'io_weight',
     'mac',
     'memory',
     'num_cpu',
     'os',
-    'project',
-    'puppet_ca',
+    #'project',
+    #'puppet_ca',
     'puppet_disabled',
-    'puppet_master',
+    #'puppet_master',
     'route_network',
     'sshfp',
     'state',
@@ -294,44 +277,6 @@ AWS_CONFIG = [
 # preference is only going to be checked when the previous ones return all
 # the same values.
 HYPERVISOR_PREFERENCES = [
-    InsufficientResource(
-        'libvirt_pool_total_gib',
-        'disk_size_gib',
-        reserved=32,
-    ),
-    InsufficientResource(
-        'libvirt_memory_total_gib',
-        'memory',
-        multiplier=1024,
-        reserved=2048,
-    ),
-    # Checks the maximum vCPU usage (95 percentile) of the given hypervisor
-    # for the given time_range and dismisses it as target when it is over
-    # the value of threshold.
-    HypervisorAttributeValueLimit('cpu_util_vm_pct', 45),
-    # Don't migrate two redundant VMs together
-    OtherVMs([
-        'project',
-        'function',
-        'environment',
-        'game_market',
-        'game_world',
-        'game_type',
-    ]),
-    # Don't migrate two masters database servers together
-    OtherVMs(['game_world', 'function'], [0, 'db']),
-    OtherVMs(['function'], ['master_db']),
-    # Don't migrate two monitoring worker to the same hypervisor
-    OtherVMs(['function'], ['monitoring-worker']),
-    # Less over-allocated (CPU) hypervisors first
-    OverAllocation('num_cpu'),
-    # Find less loaded Hypervisor
-    HypervisorAttributeValue('cpu_util_pct'),
-    # Find Hypervisor with less I/O utilization
-    HypervisorAttributeValue('iops_avg'),
-    # Prefer the hypervisor with less VMs from the same cluster
-    OtherVMs(['project', 'environment', 'game_market']),
-    # As the last resort, choose the hypervisor with less VMs
     OtherVMs(),
     # Use hash differences to have a stable ordering
     HashDifference(),

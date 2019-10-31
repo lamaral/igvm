@@ -175,8 +175,8 @@ class VM(Host):
                 lambda v: v > 0,
                 'disk_size_gib must be > 0',
             ),
-            ('puppet_ca', lambda v: True, 'puppet_ca must be set'),
-            ('puppet_master', lambda v: True, 'puppet_master must be set'),
+            # ('puppet_ca', lambda v: True, 'puppet_ca must be set'),
+            # ('puppet_master', lambda v: True, 'puppet_master must be set'),
         ]
 
         for attr, check, err in validations:
@@ -292,7 +292,7 @@ class VM(Host):
         for retry in range(timeout):
             if AWS_RETURN_CODES[
                 'stopped'] == self.aws_describe_instance_status(
-                    self.dataset_obj['aws_instance_id']
+                self.dataset_obj['aws_instance_id']
             ):
                 log.info(
                     '"{}" is stopped.'.format(self.dataset_obj['hostname'])
@@ -301,7 +301,7 @@ class VM(Host):
 
             log.info(
                 'Waiting for VM "{}" to shutdown'
-                .format(self.dataset_obj['hostname'])
+                    .format(self.dataset_obj['hostname'])
             )
             time.sleep(1)
 
@@ -334,7 +334,7 @@ class VM(Host):
             DryRun=False)
 
         return int(response['Reservations'][0]['Instances'][0][
-                   'State']['Code'])
+                       'State']['Code'])
 
     def aws_delete(self):
         """AWS delete
@@ -460,10 +460,14 @@ class VM(Host):
             if run_puppet:
                 self.run_puppet(clear_cert=cleanup_cert, debug=debug_puppet)
 
-            if postboot is not None:
-                self.copy_postboot_script(postboot)
+            # if postboot is not None:
+            #     self.copy_postboot_script(postboot)
 
             self.hypervisor.umount_vm_storage(self)
+
+            # Prepare the special cloudinit ISO to bootstrap the VM
+            # self.hypervisor.prepare_cloudinit_image(self)
+
             hypervisor.define_vm(self, transaction)
 
             # We are updating the information on the Serveradmin, before
@@ -548,10 +552,10 @@ class VM(Host):
 
         # Wait for AWS to declare the VM running
         while (
-            timeout_vm_setup and
-            AWS_RETURN_CODES['running'] != self.aws_describe_instance_status(
-                self.dataset_obj['aws_instance_id']
-            )
+                timeout_vm_setup and
+                AWS_RETURN_CODES['running'] != self.aws_describe_instance_status(
+            self.dataset_obj['aws_instance_id']
+        )
         ):
             vm_setup.update(1)
             timeout_vm_setup -= 1
@@ -569,15 +573,15 @@ class VM(Host):
                 continue
 
             with settings(
-                hide('aborts'),
-                host_string=self.dataset_obj['hostname'],
-                warn_only=True,
-                abort_on_prompts=True,
+                    hide('aborts'),
+                    host_string=self.dataset_obj['hostname'],
+                    warn_only=True,
+                    abort_on_prompts=True,
             ):
                 try:
                     if run(
-                        'find /var/lib/cloud/instance/boot-finished',
-                        quiet=True
+                            'find /var/lib/cloud/instance/boot-finished',
+                            quiet=True
                     ).succeeded:
                         cloud_init.update(timeout_cloud_init - retry - 1)
                         break
@@ -638,10 +642,13 @@ class VM(Host):
         # Copy resolv.conf from Hypervisor
         fd = BytesIO()
         with self.hypervisor.fabric_settings(
-            cd(self.hypervisor.vm_mount_path(self))
+                cd(self.hypervisor.vm_mount_path(self))
         ):
             get('/etc/resolv.conf', fd)
         self.put('/etc/resolv.conf', fd)
+
+        # Add the cloudinit config
+        # self.upload_template('etc/cloud-init.cfg', '/etc/cloud/cloud.cfg.d/networking.cfg')
 
         self.create_ssh_keys()
 
@@ -676,19 +683,25 @@ class VM(Host):
         if clear_cert:
             clean_cert(self.dataset_obj)
 
-        if self.dataset_obj['datacenter_type'] == 'kvm.dct':
+        if self.dataset_obj['igvm_operation_mode'] == 'kvm':
             self.block_autostart()
 
+            # '--tags luiz::server::networking::debian --verbose{} ) ;'
+            # '--skip_tags=chroot_unsafe --verbose{} ) ;'
             puppet_command = (
-                '( /opt/puppetlabs/puppet/bin/puppet agent '
+                '( /opt/puppetlabs/bin/puppet agent '
                 '--detailed-exitcodes '
                 '--fqdn={} --server={} --ca_server={} '
                 '--no-report --waitforcert=60 --onetime --no-daemonize '
-                '--skip_tags=chroot_unsafe --verbose{} ) ;'
+                '--skip_tags=chroot_unsafe '
+                '--tags luiz::server::networking::debian,luiz::personal '
+                '--verbose{} ) ;'
                 '[ $? -eq 2 ]'.format(
                     self.fqdn,
-                    self.dataset_obj['puppet_master'],
-                    self.dataset_obj['puppet_ca'],
+                    'box.luiz.eng.br',
+                    'box.luiz.eng.br',
+                    # self.dataset_obj['puppet_master'],
+                    # self.dataset_obj['puppet_ca'],
                     ' --debug' if debug else '',
                 )
             )

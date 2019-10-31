@@ -15,6 +15,7 @@ from fabric.colors import green, red, white, yellow
 from fabric.network import disconnect_all
 from jinja2 import Environment, PackageLoader
 from libvirt import libvirtError
+# from proxmoxer import ProxmoxAPI
 
 from igvm.exceptions import (
     ConfigError,
@@ -102,10 +103,10 @@ def vcpu_set(vm_hostname, count, offline=False):
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
 
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
+        if vm.dataset_obj['igvm_operation_mode'] != 'kvm':
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         _check_defined(vm)
@@ -139,10 +140,10 @@ def mem_set(vm_hostname, size, offline=False):
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
 
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
+        if vm.dataset_obj['igvm_operation_mode'] != 'kvm':
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         _check_defined(vm)
@@ -195,9 +196,9 @@ def disk_set(vm_hostname, size):
         if new_size_gib == vm.dataset_obj['disk_size_gib']:
             raise Warning('Disk size is the same.')
 
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
+        if vm.dataset_obj['igvm_operation_mode'] == 'aws.dct':
             vm.aws_disk_set(new_size_gib)
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
+        elif vm.dataset_obj['igvm_operation_mode'] == 'kvm':
             _check_defined(vm)
 
             vm.hypervisor.vm_set_disk_size_gib(vm, new_size_gib)
@@ -205,7 +206,7 @@ def disk_set(vm_hostname, size):
         else:
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         vm.dataset_obj['disk_size_gib'] = new_size_gib
@@ -228,10 +229,10 @@ def change_address(
         raise IGVMError('IP address change can be only performed offline')
 
     with _get_vm(vm_hostname) as vm:
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
+        if vm.dataset_obj['igvm_operation_mode'] != 'kvm':
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         new_address = ip_address(new_address)
@@ -292,7 +293,7 @@ def vm_build(vm_hostname, run_puppet=True, debug_puppet=False, postboot=None,
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
 
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
+        if vm.dataset_obj['igvm_operation_mode'] == 'aws':
             jenv = Environment(loader=PackageLoader('igvm', 'templates'))
             template = jenv.get_template('aws_user_data.cfg')
             user_data = template.render(
@@ -311,7 +312,22 @@ def vm_build(vm_hostname, run_puppet=True, debug_puppet=False, postboot=None,
             attributes = vm.aws_sync()
             for attr, val in attributes.items():
                 vm.dataset_obj[attr] = val
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
+        elif vm.dataset_obj['igvm_operation_mode'] == 'kvm':
+            # jenv = Environment(loader=PackageLoader('igvm', 'templates'))
+            # template = jenv.get_template('user-data')
+            # user_data = template.render(
+            #     hostname=vm.dataset_obj['hostname'].rstrip('.ig.local'),
+            #     fqdn=vm.dataset_obj['hostname'],
+            #     apt_repos=AWS_CONFIG[0]['apt'],
+            #     puppet_master_addr=AWS_CONFIG[0]['puppet']['master_addr'],
+            #     puppet_master=vm.dataset_obj['puppet_master'],
+            #     puppet_ca=vm.dataset_obj['puppet_ca'],
+            #     puppet_ca_addr=AWS_CONFIG[0]['puppet']['ca_addr'],
+            # )
+            #
+            # template = jenv.get_template('meta-data')
+            # meta_data = template.render()
+
             if vm.hypervisor:
                 es.enter_context(_lock_hv(vm.hypervisor))
             else:
@@ -338,10 +354,12 @@ def vm_build(vm_hostname, run_puppet=True, debug_puppet=False, postboot=None,
                 postboot=postboot,
                 cleanup_cert=rebuild,
             )
+        # elif vm.dataset_obj['igvm_operation_mode'] == 'proxmox':
+        #     proxmox = ProxmoxAPI(vm.hypervisor, user='proxmox_admin', backend='ssh_paramiko')
         else:
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         vm.dataset_obj.commit()
@@ -368,10 +386,10 @@ def vm_migrate(vm_hostname=None, vm_object=None, hypervisor_hostname=None,
                 _get_vm(vm_hostname, allow_retired=True)
             )
 
-        if _vm.dataset_obj['datacenter_type'] != 'kvm.dct':
+        if _vm.dataset_obj['igvm_operation_mode'] != 'kvm':
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    _vm.dataset_obj['datacenter_type'])
+                    _vm.dataset_obj['igvm_operation_mode'])
             )
 
         if hypervisor_hostname:
@@ -444,9 +462,9 @@ def vm_migrate(vm_hostname=None, vm_object=None, hypervisor_hostname=None,
 def vm_start(vm_hostname):
     """Start a VM"""
     with _get_vm(vm_hostname) as vm:
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
+        if vm.dataset_obj['igvm_operation_mode'] == 'aws.dct':
             vm.aws_start()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
+        elif vm.dataset_obj['igvm_operation_mode'] == 'kvm':
             _check_defined(vm)
             if vm.is_running():
                 log.info('"{}" is already running.'.format(vm.fqdn))
@@ -455,7 +473,7 @@ def vm_start(vm_hostname):
         else:
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
 
@@ -463,9 +481,9 @@ def vm_start(vm_hostname):
 def vm_stop(vm_hostname, force=False):
     """Gracefully stop a VM"""
     with _get_vm(vm_hostname, allow_retired=True) as vm:
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
+        if vm.dataset_obj['igvm_operation_mode'] == 'aws.dct':
             vm.aws_shutdown()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
+        elif vm.dataset_obj['igvm_operation_mode'] == 'kvm':
             _check_defined(vm)
 
             if not vm.is_running():
@@ -479,7 +497,7 @@ def vm_stop(vm_hostname, force=False):
         else:
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
 
@@ -493,10 +511,10 @@ def vm_restart(vm_hostname, force=False, no_redefine=False):
     """
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
+        if vm.dataset_obj['igvm_operation_mode'] == 'aws.dct':
             vm.aws_shutdown()
             vm.aws_start()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
+        elif vm.dataset_obj['igvm_operation_mode'] == 'kvm':
             _check_defined(vm)
 
             if not vm.is_running():
@@ -514,7 +532,7 @@ def vm_restart(vm_hostname, force=False, no_redefine=False):
         else:
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         log.info('"{}" is restarted.'.format(vm.fqdn))
@@ -529,7 +547,7 @@ def vm_delete(vm_hostname, retire=False):
     """
 
     with _get_vm(vm_hostname, unlock=retire, allow_retired=True) as vm:
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
+        if vm.dataset_obj['igvm_operation_mode'] == 'aws.dct':
             vm_status_code = vm.aws_describe_instance_status(
                 vm.dataset_obj['aws_instance_id'])
             if vm_status_code != AWS_RETURN_CODES['stopped']:
@@ -537,7 +555,7 @@ def vm_delete(vm_hostname, retire=False):
                     '"{}" is still running.'.format(vm.fqdn))
             else:
                 vm.aws_delete()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
+        elif vm.dataset_obj['igvm_operation_mode'] == 'kvm':
             # Make sure the VM has a hypervisor and that it is defined on it.
             # Abort if the VM has not been defined.
             _check_defined(vm)
@@ -555,7 +573,7 @@ def vm_delete(vm_hostname, retire=False):
         else:
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         # Delete the machines cert from puppet in case we want to build one with the same name in the future
@@ -586,15 +604,15 @@ def vm_sync(vm_hostname):
     This command collects actual resource allocation of a VM from the
     hypervisor and overwrites outdated attribute values in Serveradmin."""
     with _get_vm(vm_hostname) as vm:
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
+        if vm.dataset_obj['igvm_operation_mode'] == 'aws.dct':
             attributes = vm.aws_sync()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
+        elif vm.dataset_obj['igvm_operation_mode'] == 'kvm':
             _check_defined(vm)
             attributes = vm.hypervisor.vm_sync_from_hypervisor(vm)
         else:
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         changed = []
@@ -626,10 +644,10 @@ def host_info(vm_hostname):
     """
     with _get_vm(vm_hostname) as vm:
 
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
+        if vm.dataset_obj['igvm_operation_mode'] != 'kvm':
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         info = vm.info()
@@ -738,10 +756,10 @@ def vm_rename(vm_hostname, new_hostname, offline=False):
     """
 
     with _get_vm(vm_hostname) as vm:
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
+        if vm.dataset_obj['igvm_operation_mode'] != 'kvm':
             raise NotImplementedError(
                 'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+                    vm.dataset_obj['igvm_operation_mode'])
             )
 
         _check_defined(vm)
@@ -768,7 +786,7 @@ def _get_vm(hostname, unlock=True, allow_retired=False):
 
     object_id = Query({
         'hostname': Any(hostname, StartsWith(hostname + '.')),
-        'servertype': 'vm',
+        'servertype': Any('vm', 'router', 'loadbalancer'),
     }, ['object_id']).get()['object_id']
 
     def vm_query():

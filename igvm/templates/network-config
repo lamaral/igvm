@@ -1,0 +1,8 @@
+---
+version: 2
+ethernet:
+    eth0:
+        set-name: eth0
+        addresses:
+        - 44.174.202.53/255.255.255.0
+        gateway4: 44.174.202.1

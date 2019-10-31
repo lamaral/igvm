@@ -10,6 +10,12 @@
   <!-- Don't put placement attribute unless NUMA settings are set! -->
   <vcpu current='{{ num_cpu }}'>{{ props.max_cpus }}</vcpu>
 
+  <sysinfo type='smbios'>
+    <system>
+      <entry name='product'>KVM</entry>
+    </system>
+  </sysinfo>
+
   <os>
     <type arch='x86_64' machine='pc-i440fx-2.1'>hvm</type>
 {% if props.boot_type == 'debian' %}
@@ -21,6 +27,7 @@
     <kernel>{{ props.kernel_image }}</kernel>
 {% endif %}
     <boot dev='hd'/>
+    <smbios mode='sysinfo'/>
   </os>
   <features>
     <acpi/>
@@ -44,7 +51,7 @@
     <controller type='usb' index='0' model='none'/>
     <controller type='virtio-serial' index='0'>
     </controller>
-    <interface type='bridge'>
+  <interface type='bridge'>
       <mac address='{{ props.mac_address }}'/>
       <source bridge='br0'/>
 {% if vlan_tag %}
