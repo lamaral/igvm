@@ -15,6 +15,7 @@ from uuid import uuid4
 from math import log, ceil
 
 from adminapi.dataset import Query
+from adminapi.filters import Any
 from fabric.api import env
 from fabric.network import disconnect_all
 from libvirt import VIR_DOMAIN_RUNNING
@@ -28,6 +29,7 @@ from igvm.commands import (
     vm_build,
     vm_delete,
     vm_migrate,
+    vm_rename,
     vm_restart,
     vm_start,
     vm_stop,
@@ -79,14 +81,20 @@ if environ.get('PYTEST_XDIST_WORKER_COUNT'):
 else:
     PYTEST_XDIST_WORKER_COUNT = 0
 
-
 VM_NET = 'igvm-net-{}-aw.test.ig.local'.format(JENKINS_EXECUTOR)
 
-VM_HOSTNAME_PATTERN = 'igvm-{}-{}-{}.test.ig.local'
+VM_HOSTNAME_PATTERN = 'igvm-{}-{}-{}{}.test.ig.local'
 VM_HOSTNAME = VM_HOSTNAME_PATTERN.format(
     JENKINS_BUILD,
     JENKINS_EXECUTOR,
     PYTEST_XDIST_WORKER,
+    '',
+)
+VM_HOSTNAME_RENAMED = VM_HOSTNAME_PATTERN.format(
+    JENKINS_BUILD,
+    JENKINS_EXECUTOR,
+    PYTEST_XDIST_WORKER,
+    '-renamed',
 )
 
 
@@ -137,6 +145,7 @@ def setUpModule():
                     '[0-9]+',
                     JENKINS_EXECUTOR,
                     '[0-9]+',
+                    '(?:-renamed)?',
                 ),
                 domain.name(),
             ):
@@ -149,6 +158,7 @@ def setUpModule():
                     '[0-9]+',
                     JENKINS_EXECUTOR,
                     '[0-9]+',
+                    '(?:-renamed)?',
                 ),
                 vol_name,
             ):
@@ -172,7 +182,10 @@ def removeConflictingVMs(ip_addr):
 
 
 def tearDownModule():
-    query = Query({'hostname': VM_HOSTNAME}, ['hostname'])
+    query = Query(
+        {'hostname': Any(VM_HOSTNAME, VM_HOSTNAME_RENAMED)},
+        ['hostname']
+    )
     for obj in query:
         obj.delete()
     query.commit()
@@ -293,9 +306,9 @@ class IGVMTest(TestCase):
             self.assertEqual(fqdn, vm.fqdn)
             self.assertEqual(vm.dataset_obj.is_dirty(), False)
 
-    def check_vm_absent(self, hv_name=None):
+    def check_vm_absent(self, vm_name=VM_HOSTNAME, hv_name=None):
         # Operate on fresh object
-        with _get_vm(VM_HOSTNAME, allow_retired=True) as vm:
+        with _get_vm(vm_name, allow_retired=True) as vm:
             if not hv_name:
                 hv_name = vm.dataset_obj['hypervisor']
 
@@ -578,6 +591,11 @@ class CommandTest(IGVMTest):
         host_info(VM_HOSTNAME)
         self.vm.shutdown()
         host_info(VM_HOSTNAME)
+
+    def test_rename(self):
+        # self.check_vm_absent(vm_name=VM_HOSTNAME_RENAMED)
+        vm_rename(VM_HOSTNAME, new_hostname=VM_HOSTNAME_RENAMED, offline=True)
+        # self.check_vm_absent(vm_name=VM_HOSTNAME)
 
 
 class MigrationTest(IGVMTest):
