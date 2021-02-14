@@ -126,12 +126,6 @@ def vcpu_set(vm_hostname, count, offline=False):
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
 
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
-
         _check_defined(vm)
 
         if offline and not vm.is_running():
@@ -162,12 +156,6 @@ def mem_set(vm_hostname, size, offline=False):
     """
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
-
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
 
         _check_defined(vm)
 
@@ -219,18 +207,9 @@ def disk_set(vm_hostname, size):
         if new_size_gib == vm.dataset_obj['disk_size_gib']:
             raise Warning('Disk size is the same.')
 
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            vm.aws_disk_set(new_size_gib)
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            _check_defined(vm)
+        _check_defined(vm)
 
-            vm.hypervisor.vm_set_disk_size_gib(vm, new_size_gib)
-
-        else:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
+        vm.hypervisor.vm_set_disk_size_gib(vm, new_size_gib)
 
         vm.dataset_obj['disk_size_gib'] = new_size_gib
         vm.dataset_obj.commit()
@@ -252,12 +231,6 @@ def change_address(
         raise IGVMError('IP address change can be only performed offline')
 
     with _get_vm(vm_hostname) as vm:
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
-
         new_address = ip_address(new_address)
 
         if vm.dataset_obj['intern_ip'] == new_address:
@@ -328,75 +301,37 @@ def vm_build(
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
 
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            jenv = Environment(loader=PackageLoader('igvm', 'templates'))
-            template = jenv.get_template('aws_user_data.cfg')
-            user_data = template.render(
-                hostname=vm.dataset_obj['hostname'],
-                fqdn=vm.dataset_obj['hostname'],
-                vm_os=vm.dataset_obj['os'],
-                apt_repos=AWS_CONFIG[0]['apt'],
-                puppet_master=vm.dataset_obj['puppet_master'],
-                puppet_ca=vm.dataset_obj['puppet_ca'],
-            )
-
-            if rebuild:
-                vm.aws_delete()
-                timeout_terminate = 60
-                instance_status = vm.aws_describe_instance_status(
-                    vm.dataset_obj['aws_instance_id'])
-                while (
-                    timeout_terminate and
-                    AWS_RETURN_CODES['terminated'] != instance_status
-                ):
-                    timeout_terminate -= 1
-                    sleep(1)
-
-            vm.aws_build(
-                run_puppet=run_puppet,
-                debug_puppet=debug_puppet,
-                postboot=user_data
-            )
-            attributes = vm.aws_sync()
-            for attr, val in attributes.items():
-                vm.dataset_obj[attr] = val
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            if vm.hypervisor:
-                es.enter_context(_lock_hv(vm.hypervisor))
-            else:
-                hv_filter = parse.parse_query(target_hv_query or '')
-                vm.hypervisor = es.enter_context(_get_best_hypervisor(
-                    vm,
-                    ['online', 'online_reserved'] if allow_reserved_hv
-                    else ['online'],
-                    True,
-                    enforce_vm_env,
-                    soft_preferences,
-                    hv_filter,
-                ))
-                vm.dataset_obj['hypervisor'] = \
-                    vm.hypervisor.dataset_obj['hostname']
-
-            if vm.hypervisor.vm_defined(vm) and vm.is_running():
-                raise InvalidStateError(
-                    '"{}" is still running.'.format(vm.fqdn)
-                )
-
-            if rebuild and vm.hypervisor.vm_defined(vm):
-                vm.hypervisor.undefine_vm(vm)
-
-            vm.build(
-                run_puppet=run_puppet,
-                debug_puppet=debug_puppet,
-                postboot=postboot,
-                cleanup_cert=rebuild,
-                barebones=barebones,
-            )
+        if vm.hypervisor:
+            es.enter_context(_lock_hv(vm.hypervisor))
         else:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+            hv_filter = parse.parse_query(target_hv_query or '')
+            vm.hypervisor = es.enter_context(_get_best_hypervisor(
+                vm,
+                ['online', 'online_reserved'] if allow_reserved_hv
+                else ['online'],
+                True,
+                enforce_vm_env,
+                soft_preferences,
+                hv_filter,
+            ))
+            vm.dataset_obj['hypervisor'] = \
+                vm.hypervisor.dataset_obj['hostname']
+
+        if vm.hypervisor.vm_defined(vm) and vm.is_running():
+            raise InvalidStateError(
+                '"{}" is still running.'.format(vm.fqdn)
             )
+
+        if rebuild and vm.hypervisor.vm_defined(vm):
+            vm.hypervisor.undefine_vm(vm)
+
+        vm.build(
+            run_puppet=run_puppet,
+            debug_puppet=debug_puppet,
+            postboot=postboot,
+            cleanup_cert=rebuild,
+            barebones=barebones,
+        )
 
         vm.dataset_obj.commit()
 
@@ -430,12 +365,6 @@ def vm_migrate(
         else:
             _vm = es.enter_context(
                 _get_vm(vm_hostname, allow_retired=True)
-            )
-
-        if _vm.dataset_obj['datacenter_type'] != 'kvm.dct':
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    _vm.dataset_obj['datacenter_type'])
             )
 
         # We have to check migration settings before searching for a HV,
@@ -551,19 +480,11 @@ def vm_start(vm_hostname, unretire=None):
         if unretire and vm.dataset_obj['state'] != 'retired':
             raise InvalidStateError('Can\'t unretire a non-retired VM!')
 
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            vm.aws_start()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            _check_defined(vm)
-            if vm.is_running():
-                log.info('"{}" is already running.'.format(vm.fqdn))
-                return
-            vm.start()
-        else:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
+        _check_defined(vm)
+        if vm.is_running():
+            log.info('"{}" is already running.'.format(vm.fqdn))
+            return
+        vm.start()
 
         if unretire:
             vm.dataset_obj['state'] = unretire
@@ -574,23 +495,15 @@ def vm_start(vm_hostname, unretire=None):
 def vm_stop(vm_hostname, force=False, retire=False):
     """Gracefully stop a VM"""
     with _get_vm(vm_hostname, allow_retired=True) as vm:
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            vm.aws_shutdown()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            _check_defined(vm)
+        _check_defined(vm)
 
-            if not vm.is_running():
-                log.info('"{}" is already stopped.'.format(vm.fqdn))
-                return
-            if force:
-                vm.hypervisor.stop_vm_force(vm)
-            else:
-                vm.shutdown()
+        if not vm.is_running():
+            log.info('"{}" is already stopped.'.format(vm.fqdn))
+            return
+        if force:
+            vm.hypervisor.stop_vm_force(vm)
         else:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
+            vm.shutdown()
 
         if retire:
             vm.dataset_obj['state'] = 'retired'
@@ -610,29 +523,20 @@ def vm_restart(vm_hostname, force=False, no_redefine=False):
     """
     with ExitStack() as es:
         vm = es.enter_context(_get_vm(vm_hostname))
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            vm.aws_shutdown()
-            vm.aws_start()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            _check_defined(vm)
+        _check_defined(vm)
 
-            if not vm.is_running():
-                raise InvalidStateError('"{}" is not running'.format(vm.fqdn))
+        if not vm.is_running():
+            raise InvalidStateError('"{}" is not running'.format(vm.fqdn))
 
-            if force:
-                vm.hypervisor.stop_vm_force(vm)
-            else:
-                vm.shutdown()
-
-            if not no_redefine:
-                vm.hypervisor.redefine_vm(vm)
-
-            vm.start()
+        if force:
+            vm.hypervisor.stop_vm_force(vm)
         else:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
+            vm.shutdown()
+
+        if not no_redefine:
+            vm.hypervisor.redefine_vm(vm)
+
+        vm.start()
 
         log.info('"{}" is restarted.'.format(vm.fqdn))
 
@@ -646,39 +550,27 @@ def vm_delete(vm_hostname, retire=False):
     """
 
     with _get_vm(vm_hostname, unlock=retire, allow_retired=True) as vm:
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            vm_status_code = vm.aws_describe_instance_status(
-                vm.dataset_obj['aws_instance_id'])
-            if vm_status_code != AWS_RETURN_CODES['stopped']:
-                raise InvalidStateError(
-                    '"{}" is still running.'.format(vm.fqdn))
-            else:
-                vm.aws_delete()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            # Make sure the VM has a hypervisor and that it is defined on it.
-            # Abort if the VM has not been defined.
-            _check_defined(vm)
+        # Make sure the VM has a hypervisor and that it is defined on it.
+        # Abort if the VM has not been defined.
+        _check_defined(vm)
 
-            # Make sure the VM is shut down, abort if it is not.
-            if (
-                vm.hypervisor
-                and vm.hypervisor.vm_defined(vm)
-                and vm.is_running()
-            ):
-                raise InvalidStateError('"{}" is still running.'.format(
-                    vm.fqdn)
-                )
-
-            # Delete the VM from its hypervisor if required.
-            if vm.hypervisor and vm.hypervisor.vm_defined(vm):
-                vm.hypervisor.undefine_vm(vm)
-        else:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
+        # Make sure the VM is shut down, abort if it is not.
+        if (
+            vm.hypervisor
+            and vm.hypervisor.vm_defined(vm)
+            and vm.is_running()
+        ):
+            raise InvalidStateError('"{}" is still running.'.format(
+                vm.fqdn)
             )
 
-        # Delete the machines cert from puppet in case we want to build one with the same name in the future
+        # Delete the VM from its hypervisor if required.
+        if vm.hypervisor and vm.hypervisor.vm_defined(vm):
+            vm.hypervisor.undefine_vm(vm)
+
+
+        # Delete the machines cert from puppet in case we want to build one
+        # with the same name in the future
         clean_cert(vm.dataset_obj)
 
         # Delete the serveradmin object of this VM
@@ -706,16 +598,8 @@ def vm_sync(vm_hostname):
     This command collects actual resource allocation of a VM from the
     hypervisor and overwrites outdated attribute values in Serveradmin."""
     with _get_vm(vm_hostname) as vm:
-        if vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            attributes = vm.aws_sync()
-        elif vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            _check_defined(vm)
-            attributes = vm.hypervisor.vm_sync_from_hypervisor(vm)
-        else:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
+        _check_defined(vm)
+        attributes = vm.hypervisor.vm_sync_from_hypervisor(vm)
 
         changed = []
         for attrib, value in attributes.items():
@@ -766,12 +650,6 @@ def host_info(vm_hostname):
     Library consumers should use VM.info() directly.
     """
     with _get_vm(vm_hostname) as vm:
-
-        if vm.dataset_obj['datacenter_type'] != 'kvm.dct':
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type'])
-            )
 
         info = vm.info()
 
@@ -879,33 +757,24 @@ def vm_rename(vm_hostname, new_hostname, offline=False):
     """
 
     with _get_vm(vm_hostname) as vm:
-        if vm.dataset_obj['datacenter_type'] not in ['aws.dct', 'kvm.dct']:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    vm.dataset_obj['datacenter_type']
-                )
-            )
 
         if vm.dataset_obj['puppet_disabled']:
             raise ConfigError(
                 'Rename command only works with Puppet enabled'
             )
 
-        if vm.dataset_obj['datacenter_type'] == 'kvm.dct':
-            _check_defined(vm)
+        _check_defined(vm)
 
-            if not offline:
-                raise NotImplementedError(
-                    'Rename command only works with --offline at the moment.'
-                )
-            if not vm.is_running():
-                raise NotImplementedError(
-                    'Rename command only works online at the moment.'
-                )
+        if not offline:
+            raise NotImplementedError(
+                'Rename command only works with --offline at the moment.'
+            )
+        if not vm.is_running():
+            raise NotImplementedError(
+                'Rename command only works online at the moment.'
+            )
 
-            vm.rename(new_hostname)
-        elif vm.dataset_obj['datacenter_type'] == 'aws.dct':
-            vm.aws_rename(new_hostname)
+        vm.rename(new_hostname)
 
 
 @contextmanager

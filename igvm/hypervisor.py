@@ -1132,13 +1132,7 @@ class Hypervisor(Host):
         :return: Total CPU usage of recently moved VMs
         """
 
-        migration_log = self.dataset_obj['igvm_migration_log']
-        total_cpu_usage = 0
-        for vm_migration_log in migration_log:
-            cpu_usage = vm_migration_log.split(' ')[1]
-            total_cpu_usage = total_cpu_usage + int(cpu_usage)
-
-        return total_cpu_usage
+        return 0
 
     def log_migration(self, vm: VM, operator: str) -> None:
         """Log migration to or from Hypervisor
@@ -1151,9 +1145,10 @@ class Hypervisor(Host):
         :param operator: plus for migration to HV, minus for migration from HV
         """
 
-        cpu_usage_vm = self.estimate_vm_cpu_usage(vm)
-        timestamp = int(time())
-        log_entry = '{} {}{}'.format(timestamp, operator, round(cpu_usage_vm))
+        return
+        #cpu_usage_vm = self.estimate_vm_cpu_usage(vm)
+        #timestamp = int(time())
+        #log_entry = '{} {}{}'.format(timestamp, operator, round(cpu_usage_vm))
 
-        self.dataset_obj['igvm_migration_log'].add(log_entry)
-        self.dataset_obj.commit()
+        #self.dataset_obj['igvm_migration_log'].add(log_entry)
+        #self.dataset_obj.commit()

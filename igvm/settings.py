@@ -121,7 +121,7 @@ HYPERVISOR_ATTRIBUTES = [
     'hardware_model',
     'hostname',
     'igvm_locked',
-    'igvm_migration_log',
+#    'igvm_migration_log',
     'intern_ip',
     'iops_avg',
     'igvm_migration_log',
