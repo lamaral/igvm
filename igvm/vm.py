@@ -186,8 +186,7 @@ class VM(Host):
         self.previous_hostname = self.dataset_obj['hostname']
 
         self.dataset_obj['hostname'] = new_hostname
-        if self.dataset_obj['datacenter_type'] == 'kvm.dct':
-            self.check_serveradmin_config()
+        self.check_serveradmin_config()
 
         self.dataset_obj.commit()
 
@@ -476,17 +475,7 @@ class VM(Host):
             raise VMError(e)
 
     def is_running(self):
-        if self.dataset_obj['datacenter_type'] not in ['aws.dct', 'kvm.dct']:
-            raise NotImplementedError(
-                'This operation is not yet supported for {}'.format(
-                    self.dataset_obj['datacenter_type'])
-            )
-        if self.dataset_obj['datacenter_type'] == 'kvm.dct':
-            return self.hypervisor.vm_running(self)
-
-        instance_status = self.aws_describe_instance_status(
-            self.dataset_obj['aws_instance_id'])
-        return instance_status == AWS_RETURN_CODES['running']
+        return self.hypervisor.vm_running(self)
 
     def wait_for_running(self, running=True, timeout=60):
         """
@@ -864,29 +853,28 @@ class VM(Host):
         if clear_cert:
             clean_cert(self.dataset_obj)
 
-        if self.dataset_obj['datacenter_type'] == 'kvm.dct':
-            self.block_autostart()
+        self.block_autostart()
 
-            puppet_command = (
-                '( /opt/puppetlabs/puppet/bin/puppet agent '
-                '--detailed-exitcodes '
-                '--fqdn={} --server={} --ca_server={} '
-                '--no-report --waitforcert=60 --onetime --no-daemonize '
-                '--skip_tags=chroot_unsafe --verbose{} ) ;'
-                '[ $? -eq 2 ]'.format(
-                    self.fqdn,
-                    self.dataset_obj['puppet_master'],
-                    self.dataset_obj['puppet_ca'],
-                    ' --debug' if debug else '',
-                )
+        puppet_command = (
+            '( /opt/puppetlabs/puppet/bin/puppet agent '
+            '--detailed-exitcodes '
+            '--fqdn={} --server={} --ca_server={} '
+            '--no-report --waitforcert=60 --onetime --no-daemonize '
+            '--skip_tags=chroot_unsafe --verbose{} ) ;'
+            '[ $? -eq 2 ]'.format(
+                self.fqdn,
+                self.dataset_obj['puppet_master'],
+                self.dataset_obj['puppet_ca'],
+                ' --debug' if debug else '',
             )
+        )
 
-            try:
-                self.run(puppet_command)
-            except RemoteCommandError as e:
-                raise VMError('Initial puppetrun failed') from e
+        try:
+            self.run(puppet_command)
+        except RemoteCommandError as e:
+            raise VMError('Initial puppetrun failed') from e
 
-            self.unblock_autostart()
+        self.unblock_autostart()
 
     def block_autostart(self):
         fd = BytesIO()
