@@ -36,7 +36,7 @@ COMMON_FABRIC_SETTINGS = dict(
 if 'IGVM_SSH_USER' in environ:
     COMMON_FABRIC_SETTINGS['user'] = environ.get('IGVM_SSH_USER')
 
-VG_NAME = 'xen-data'
+VG_NAME = 'vm-data'
 # Reserved pool space on Hypervisor
 # TODO: this could be a percent value, at least for ZFS.
 RESERVED_DISK = {
@@ -111,20 +111,20 @@ NETWORK_ATTRIBUTES = [
 ]
 
 HYPERVISOR_ATTRIBUTES = [
-    'cpu_perffactor',
-    'cpu_util_pct',
+#    'cpu_perffactor',
     'environment',
-    'hardware_model',
+#    'hardware_model',
+#    'cpu_util_pct',
+#    'cpu_util_vm_pct',
     'hostname',
     'igvm_locked',
 #    'igvm_migration_log',
     'intern_ip',
-    'iops_avg',
-    'igvm_migration_log',
-    'libvirt_memory_total_gib',
-    'libvirt_memory_used_gib',
-    'libvirt_pool_total_gib',
-    'libvirt_pool_used_gib',
+#    'iops_avg',
+#    'libvirt_memory_total_gib',
+#    'libvirt_memory_used_gib',
+#    'libvirt_pool_total_gib',
+#    'libvirt_pool_used_gib',
     'num_cpu',
     'os',
     {'route_network': NETWORK_ATTRIBUTES},
@@ -133,61 +133,41 @@ HYPERVISOR_ATTRIBUTES = [
         'vlan_networks': [
             'hostname',
             'intern_ip',
-            'vlan_tag',
         ],
     },
     {
         'vms': [
             'disk_size_gib',
             'environment',
-            'function',
-            'game_market',
-            'game_type',
-            'game_world',
             'hostname',
             'memory',
             'num_cpu',
-            'project',
-            'served_game',
+#            'project',
+#            'served_game',
             'state',
         ],
     },
 ]
 
 VM_ATTRIBUTES = [
-    'aws_image_id',
-    'aws_instance_id',
-    'aws_instance_type',
-    'aws_key_name',
-    'aws_placement',
-    'aws_subnet_id',
-    'aws_vpc_id',
-    'datacenter',
-    'datacenter_type',
     'disk_size_gib',
     'environment',
-    'function',
-    'game_market',
-    'game_type',
-    'game_world',
     'hostname',
     'igvm_locked',
     'intern_ip',
-    'io_weight',
-    'load_99',
+#    'io_weight',
+#    'load_99',
     'mac',
     'memory',
     'num_cpu',
     'os',
-    'primary_ip6',
-    'project',
-    {'project_network': NETWORK_ATTRIBUTES},
+    'ip6',
+#    'project',
     'puppet_ca',
     'puppet_disabled',
     'puppet_master',
-    {'route_network': NETWORK_ATTRIBUTES},
-    'served_game',
-    'service_groups',
+    'route_network',
+#    'served_game',
     'sshfp',
     'state',
     {'hypervisor': HYPERVISOR_ATTRIBUTES},
@@ -303,49 +283,5 @@ HYPERVISOR_CPU_THRESHOLDS = {
 # preference is only going to be checked when the previous ones return all
 # the same values.
 HYPERVISOR_PREFERENCES = [
-    InsufficientResource(
-        'libvirt_pool_total_gib',
-        'disk_size_gib',
-        reserved=32,
-    ),
-    InsufficientResource(
-        'libvirt_memory_total_gib',
-        'memory',
-        multiplier=1024,
-        reserved=2048,
-    ),
-    # Compares the environment of the VM with the environment of the
-    # hypervisor. It makes hypervisors of different envs less likely chosen.
-    HypervisorEnvironmentValue('environment'),
-    # Calculates the performance_value of the given VM, which is comparable
-    # across hypervisor hardware models. It uses this value to predict the
-    # CPU usage of the VM on the destination hypervisor and dismisses all
-    # targets with a value above the threshold.
-    HypervisorCpuUsageLimit(
-        'hardware_model',
-        HYPERVISOR_CPU_THRESHOLDS,
-    ),
-    # Don't migrate two redundant VMs together
-    OtherVMs([
-        'project',
-        'function',
-        'environment',
-        'game_market',
-        'game_world',
-        'game_type',
-        'served_game',
-    ]),
-    # Don't migrate two masters database servers together
-    OtherVMs(['game_world', 'function'], [0, 'db']),
-    OtherVMs(['function'], ['master_db']),
-    # Don't migrate two monitoring worker to the same hypervisor
-    OtherVMs(['function'], ['monitoring-worker']),
-    # Less over-allocated (CPU) hypervisors first
-    OverAllocation('num_cpu'),
-    # Find less loaded Hypervisor
-    HypervisorAttributeValue('cpu_util_pct'),
-    # Find Hypervisor with less I/O utilization
-    HypervisorAttributeValue('iops_avg'),
-    # Prefer the hypervisor with less VMs from the same cluster
-    OtherVMs(['project', 'environment', 'game_market']),
+    OtherVMs(['environment']),
 ]

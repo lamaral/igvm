@@ -222,8 +222,8 @@ class VM(Host):
                 lambda v: v > 0,
                 'disk_size_gib must be > 0',
             ),
-            ('puppet_ca', lambda v: True, 'puppet_ca must be set'),
-            ('puppet_master', lambda v: True, 'puppet_master must be set'),
+            #('puppet_ca', lambda v: True, 'puppet_ca must be set'),
+            #('puppet_master', lambda v: True, 'puppet_master must be set'),
         ]
 
         for attr, check, err in validations:
