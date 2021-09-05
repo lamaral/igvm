@@ -38,6 +38,7 @@ if 'IGVM_SSH_USER' in environ:
     COMMON_FABRIC_SETTINGS['user'] = environ.get('IGVM_SSH_USER')
 
 VG_NAME = 'vm-data'
+#VG_NAME = 'extra-data'
 # Reserved pool space on Hypervisor
 # TODO: this could be a percent value, at least for ZFS.
 RESERVED_DISK = {
@@ -59,10 +60,8 @@ KVM_DEFAULT_MAX_CPUS = 24
 
 # Mapping to determine the libvirt CPU model based on serveradmin hw_model
 KVM_HWMODEL_TO_CPUMODEL = {
-    'Nehalem': ['Dell_R510', 'Dell_M610', 'Dell_M710'],
-    'SandyBridge': ['Dell_R320', 'Dell_M620', 'Dell_R620'],
-    'Haswell-noTSX': ['Dell_R430', 'Dell_M630', 'Dell_M640', 'Dell_R640'],
-    'EPYC': ['Dell_R6515', 'Dell_R7515'],
+    'Nehalem': ['R510'],
+    'IvyBridge': ['R620'],
 }
 
 XFS_CONFIG = {
@@ -109,17 +108,13 @@ except KeyError:
 
 IMAGE_PATH = '/tmp'
 
-NETWORK_ATTRIBUTES = [
-    'hostname',
-    'service_groups',
-]
-
 HYPERVISOR_ATTRIBUTES = [
 #    'cpu_perffactor',
     'environment',
 #    'hardware_model',
 #    'cpu_util_pct',
 #    'cpu_util_vm_pct',
+    'hardware_model',
     'hostname',
     'igvm_locked',
 #    'igvm_migration_log',
@@ -131,12 +126,13 @@ HYPERVISOR_ATTRIBUTES = [
 #    'libvirt_pool_used_gib',
     'num_cpu',
     'os',
-    {'route_network': NETWORK_ATTRIBUTES},
+    'route_network',
     'state',
     {
         'vlan_networks': [
             'hostname',
             'intern_ip',
+            'vlan_tag',
         ],
     },
     {
@@ -159,7 +155,7 @@ VM_ATTRIBUTES = [
     'hostname',
     'igvm_locked',
     'intern_ip',
-#    'io_weight',
+    'io_weight',
 #    'load_99',
     'mac',
     'memory',

@@ -83,14 +83,13 @@ class DomainProperties(object):
         self.max_mem = hypervisor.total_vm_memory()
         self.mem_hotplug = (self.qemu_version >= (2, 3))
         self.mem_balloon = False
-        if len(vm.dataset_obj['mac']) == 0:
+        if vm.dataset_obj['mac'] is None:
             self.mac_address = _generate_mac_address(
                 vm.dataset_obj['object_id']
             )
-            vm.dataset_obj['mac'] = [self.mac_address]
+            vm.dataset_obj['mac'] = self.mac_address
         else:
-            # Opportunistic algorighm: get *any* MAC from Serveradmin
-            self.mac_address = next(iter(vm.dataset_obj['mac']))
+            self.mac_address = vm.dataset_obj['mac']
 
         if vm.dataset_obj['os'].startswith('freebsd'):
             self.boot_type = 'freebsd'
