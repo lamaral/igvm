@@ -323,6 +323,7 @@ class VM(Host):
         host_up = wait_until(
             str(self.dataset_obj['intern_ip']),
             waitmsg='Waiting for SSH to respond',
+            timeout=600,
         )
         if not host_up and force_stop_failed:
             # If there is a network or booting error VM must be destroyed

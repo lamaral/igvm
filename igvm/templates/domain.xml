@@ -21,13 +21,18 @@
     <kernel>{{ props.kernel_image }}</kernel>
 {% endif %}
     <boot dev='hd'/>
+    <smbios mode='sysinfo'/>
   </os>
   <features>
     <acpi/>
     <apic eoi='on'/>
     <hap/>
   </features>
-
+  <sysinfo type='smbios'>
+    <system>
+      <entry name='product'>KVM</entry>
+    </system>
+  </sysinfo>
   <clock offset='utc' adjustment='reset'/>
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>restart</on_reboot>
