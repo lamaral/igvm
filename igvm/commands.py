@@ -765,7 +765,7 @@ def _get_vm(hostname, unlock=True, allow_retired=False):
 
     object_id = Query({
         'hostname': Any(hostname, StartsWith(hostname + '.')),
-        'servertype': 'vm',
+        'servertype': Any('loadbalancer', 'router', 'vm'),
     }, ['object_id']).get()['object_id']
 
     def vm_query():
