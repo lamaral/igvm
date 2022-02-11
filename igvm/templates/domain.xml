@@ -9,7 +9,12 @@
 
   <!-- Don't put placement attribute unless NUMA settings are set! -->
   <vcpu current='{{ num_cpu }}'>{{ props.max_cpus }}</vcpu>
-
+  <sysinfo type='smbios'>
+    <system>
+      <entry name='manufacturer'>AS209114</entry>
+      <entry name='product'>KVM</entry>
+    </system>
+  </sysinfo>
   <os>
     <type arch='x86_64' machine='pc-i440fx-2.1'>hvm</type>
 {% if props.boot_type == 'debian' %}
