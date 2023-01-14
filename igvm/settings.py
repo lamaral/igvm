@@ -62,6 +62,7 @@ KVM_DEFAULT_MAX_CPUS = 24
 KVM_HWMODEL_TO_CPUMODEL = {
     'Nehalem': ['R510'],
     'IvyBridge': ['R620'],
+    'EPYC': ['H11'],
 }
 
 XFS_CONFIG = {
