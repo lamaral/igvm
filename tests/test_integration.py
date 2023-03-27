@@ -93,7 +93,7 @@ class IGVMTest(TestCase):
         ).get()['datacenter_type']
 
         self.hvs = [Hypervisor(o) for o in Query({
-            'environment': 'testing',
+            'environment': Any('testing', 'staging'),
             'servertype': 'hypervisor',
             'state': 'online',
             'vlan_networks': self.route_network,
